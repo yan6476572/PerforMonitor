@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# PyInstaller build artifacts
+build/
+dist/
+*.log
+
+# IDE / OS junk
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
