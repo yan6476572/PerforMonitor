@@ -34,13 +34,13 @@
 
 ### 效果预览
 
-| 主界面（矩形） | 圆盘模式 + 悬停网速 |
+| 横向条带布局 | 圆盘模式 |
 | --- | --- |
-| ![HUD](docs/screenshots/hud-default.png) | ![圆盘悬停网速](docs/screenshots/mem-circle-net-hover.png) |
+| ![横向条带](docs/screenshots/hud-strip.png) | ![圆盘模式](docs/screenshots/gauge-circle.png) |
 
-| 设置界面 | 运行效果 |
+| 圆盘悬停网速 | 纵向列表布局 |
 | --- | --- |
-| ![设置](docs/screenshots/exe-settings.png) | ![运行](docs/screenshots/exe-running.png) |
+| ![圆盘悬停网速](docs/screenshots/gauge-net-hover.png) | ![纵向列表](docs/screenshots/hud-vertical.png) |
 
 ---
 
