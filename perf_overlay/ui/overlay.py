@@ -927,10 +927,10 @@ class OverlayWidget(QWidget):
 
         font_size = int(s.get("appearance", "font_size", default=12))
         cell_h = rect.height()
-        # smaller value type + snug label/value spacing keep the strip low;
-        # fit_font / _fit_value_unit only shrink from here if the width is tight
-        val_pt = int(max(8, min(font_size + 3, round(cell_h * 0.36))))
-        lab_pt = int(max(7, min(font_size + 1, round(cell_h * 0.24))))
+        # landscape cells: label clearly larger than the value, so the eye
+        # reads the metric name first; both auto-shrink if width is tight
+        val_pt = int(max(8, min(font_size - 1, round(cell_h * 0.30))))
+        lab_pt = int(max(8, min(font_size + 3, round(cell_h * 0.30))))
         base_label = theme.ui_font(lab_pt)
         base_value = theme.ui_font(val_pt, theme.QFont.Weight.DemiBold)
         base_unit = theme.ui_font(max(7, lab_pt - 1))
@@ -951,7 +951,12 @@ class OverlayWidget(QWidget):
 
         show_label = text_rect.height() >= 14
         if show_label:
-            label_h = max(8, round(text_rect.height() * 0.28))
+            # the label row gets the real height of the (larger) label font,
+            # capped so it can't crowd out the value on very short cells
+            lab_fm = QFontMetrics(base_label)
+            label_h = min(lab_fm.height(),
+                          max(10, round(text_rect.height() * 0.55)))
+            label_h = max(10, label_h)
             value_h = max(9, text_rect.height() - label_h + 2)
         else:
             label_h = 0
