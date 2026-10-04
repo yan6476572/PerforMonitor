@@ -72,7 +72,7 @@ def main() -> int:
     check("drag moves window", g.x() == start.x() + 50 and g.y() == start.y() + 30,
           f"({start.x()},{start.y()}) -> ({g.x()},{g.y()})")
 
-    # ---- 3. right-edge drag resizes width
+    # ---- 3. right-edge drag: width is the short side, it hugs the content
     before = ov.geometry()
     p = QPoint(before.width() - 3, before.height() / 2)
     QTest.mousePress(ov, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, p)
@@ -80,7 +80,8 @@ def main() -> int:
     QTest.mouseRelease(ov, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, p + QPoint(60, 0))
     app.processEvents()
     after = ov.geometry()
-    check("right-edge drag resizes width", after.width() == before.width() + 60,
+    check("right-edge drag snaps width back to content",
+          after.width() <= before.width() + 2,
           f"{before.width()} -> {after.width()}")
 
     # ---- 4. bottom-edge drag resizes height
@@ -171,9 +172,11 @@ def main() -> int:
     ov.setGeometry(200, 200, 268, 382)  # back to portrait for later checks
     app.processEvents()
 
-    # ---- 10. unit column is shared (values line up)
-    spec = METRIC_SPECS[2]  # cpu_usage -> "%"
-    check("unit column width computed", ov._unit_col_w > 0, f"w={ov._unit_col_w}")
+    # ---- 10. portrait width hugs the content (unit sits right after value)
+    app.processEvents()
+    check("portrait width hugs content",
+          ov.width() <= ov._natural_stack_width() + 2,
+          f"w={ov.width()} natural={ov._natural_stack_width()}")
 
     # ---- 11. value formatting
     check("format percent", format_value(METRIC_SPECS[2], 42.0) == ("42", "%"),
@@ -293,7 +296,7 @@ def main() -> int:
     app.processEvents()
     ov._persist_geometry()
     check("geometry persisted", settings.get("window", "x") == 111
-          and settings.get("window", "width") == 300)
+          and settings.get("window", "height") == 400)
 
     ov.close()
 

@@ -28,8 +28,8 @@ class OverlayWidget(QWidget):
     memoryBoostRequested = Signal()
 
     RESIZE_MARGIN = 9
-    MIN_WIDTH = 178
-    MIN_HEIGHT = 84
+    MIN_WIDTH = 154
+    MIN_HEIGHT = 64
     # circular gauge (memory-only) — compact, matches system widget size
     CIRC_MIN = 48
     CIRC_NICE = 48          # default = smallest allowed
@@ -86,6 +86,10 @@ class OverlayWidget(QWidget):
         # network-speed hover card (memory-only circular gauge)
         self._hover_disc = False
         self._net_card = NetSpeedCard()
+
+        # content-driven shrink state
+        self._shrinking = False
+        self._cols = 1
 
         self.settings.subscribe(self._on_settings_changed)
         self.apply_settings()
@@ -238,7 +242,6 @@ class OverlayWidget(QWidget):
         s = self.settings
         font_size = int(s.get("appearance", "font_size", default=12))
         show_bars = bool(s.get("appearance", "show_bars", default=True))
-        show_header = bool(s.get("appearance", "show_header", default=True))
         grid = str(s.get("appearance", "layout", default="stack")) == "grid"
 
         specs = self._enabled_specs()
@@ -275,16 +278,10 @@ class OverlayWidget(QWidget):
         FOOT_GAP = 13 if win_h >= 200 else (3 if landscape else 5)
         bottom = inner.bottom() - FOOT_GAP
 
-        if not show_header:
-            header_h = 0
-        elif landscape:
-            # slim title band - the strip's height belongs to the metrics
-            header_h = max(12, min(font_size, win_h // 6))
-        elif win_h < 140:
-            header_h = max(14, font_size + 2)
-        else:
-            header_h = font_size + 17
-        row_h_nat = (font_size + 22) if show_bars else (font_size + 13)
+        # metrics-only panel: no title bar, no gear — settings live in the
+        # right-click menu and the tray
+        header_h = 0
+        row_h_nat = (font_size + 17) if show_bars else (font_size + 9)
         gap = 5 if landscape else 5
 
         # Primary axis follows the long edge:
@@ -335,20 +332,67 @@ class OverlayWidget(QWidget):
                 "rect": QRect(round(x), round(top), round(col_w), round(row_h)),
             })
 
-        # header area
-        self._header_rect = QRect(inner.left(), inner.top(), inner.width(), header_h) if show_header else QRect()
-
         # metrics may not fit with bars; remember whether bars are drawn
         self._row_h = row_h
         self._draw_bars = show_bars and row_h >= 22
         self._inner = inner
+        self._header_rect = QRect()
+        self._settings_rect = QRect()
+        self._cols = cols
+        self._shrink_to_content()
 
-        # shared right-hand unit column so every value lines up like a table
-        # (only used by the wide side-by-side cell painter)
-        tu = str(self.settings.get("sampling", "temp_unit", default="C"))
-        fm = QFontMetrics(theme.ui_font(max(8, font_size - 2)))
-        widths = [fm.horizontalAdvance(theme.display_unit(spec, tu)) for spec in specs]
-        self._unit_col_w = (max(widths) + 5) if widths else 0
+    # ------------------------------------------------------------------
+    # content-driven sizing: keep the short side snug around the metrics
+    # ------------------------------------------------------------------
+    def _natural_stack_width(self) -> int:
+        """Width a tall single-column panel needs: label + value + unit."""
+        s = self.settings
+        font_size = int(s.get("appearance", "font_size", default=12))
+        temp_unit = str(s.get("sampling", "temp_unit", default="C"))
+        specs = self._enabled_specs() or [METRIC_BY_KEY["mem_usage"]]
+        fm_label = QFontMetrics(theme.ui_font(max(8, font_size - 2)))
+        fm_value = QFontMetrics(theme.ui_font(max(9, font_size + 1),
+                                              theme.QFont.Weight.DemiBold))
+        fm_unit = QFontMetrics(theme.ui_font(max(8, font_size - 2)))
+        label_w = max(fm_label.horizontalAdvance(sp.label) for sp in specs)
+        value_w = fm_value.horizontalAdvance("888.8")   # widest realistic number
+        unit_w = max(fm_unit.horizontalAdvance(theme.display_unit(sp, temp_unit))
+                     for sp in specs)
+        # PAD + tick/label indent + label<->value gap + unit gap + right margin
+        return theme.PAD + 12 + label_w + 14 + value_w + 3 + unit_w + 4
+
+    def _natural_strip_height(self) -> int:
+        """Height the landscape strip needs at its natural row height."""
+        s = self.settings
+        font_size = int(s.get("appearance", "font_size", default=12))
+        show_bars = bool(s.get("appearance", "show_bars", default=True))
+        rows_count = max(1, len({r["rect"].top() for r in self._rows})) if self._rows else 1
+        pad_y = max(4, theme.PAD // 4)
+        row_h = (font_size + 17) if show_bars else (font_size + 9)
+        return pad_y * 2 + rows_count * row_h + 5 * (rows_count - 1) + 3  # 3 = FOOT_GAP
+
+    def _shrink_to_content(self) -> None:
+        """Narrow the short side to hug the metrics; never grow it back."""
+        if self._is_circular() or self._shrinking:
+            return
+        g = self.geometry()
+        if self._landscape:
+            nat = self._natural_strip_height()
+            if g.height() - nat > 3:
+                g.setHeight(max(self.minimumHeight(), nat))
+                self._apply_shrink(g)
+        elif self._cols <= 1:  # never fight the two-column grid layout
+            nat = self._natural_stack_width()
+            if g.width() - nat > 3:
+                g.setWidth(max(self.minimumWidth(), nat))
+                self._apply_shrink(g)
+
+    def _apply_shrink(self, g: QRect) -> None:
+        self._shrinking = True
+        try:
+            self.setGeometry(g)
+        finally:
+            self._shrinking = False
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
@@ -394,16 +438,11 @@ class OverlayWidget(QWidget):
         top_c.setAlpha(alpha)
         bot_c = theme.darken(bg, 0.16)
         bot_c.setAlpha(min(255, alpha + 12))
-        painter_path = None
         p.save()
         p.setBrush(theme.vertical_gradient(top_c, bot_c))
         p.setPen(Qt.PenStyle.NoPen)  # no window/frame border
         p.drawRoundedRect(rect.adjusted(1, 1, -1, -1), radius, radius)
         p.restore()
-
-        # --- header -----------------------------------------------
-        if self._header_rect.isValid():
-            self._paint_header(p, accent)
 
         # --- rows -------------------------------------------------
         if not self._rows:
@@ -670,54 +709,8 @@ class OverlayWidget(QWidget):
         p.restore()
 
     # ------------------------------------------------------------------
-    # header / empty / rectangular boost + boost state machine
+    # empty / rectangular boost + boost state machine
     # ------------------------------------------------------------------
-    def _paint_header(self, p: QPainter, accent: QColor) -> None:
-        r = self._header_rect
-        cy = r.center().y()
-        base_pt = int(self.settings.get("appearance", "font_size", default=12))
-        title_pt = max(7, min(base_pt - 3, r.height() - 4)) if r.height() < base_pt + 8 else base_pt - 3
-        font = theme.ui_font(title_pt, theme.QFont.Weight.DemiBold)
-
-        dot_x = r.left() + 6
-        for radius, alpha in ((8, 22), (5.5, 42), (3.5, 255)):
-            c = QColor(accent)
-            c.setAlpha(alpha)
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(c)
-            p.drawEllipse(dot_x, cy, radius, radius)
-
-        p.setFont(font)
-        p.setPen(QPen(theme.mix(accent, QColor("#FFFFFF"), 0.58)))
-        p.drawText(QRect(r.left() + 22, r.top(), r.width() - 50, r.height()),
-                   Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "PerformanceMonitor")
-
-        self._settings_rect = QRect(r.right() - 24, r.top() + 2, 20, r.height() - 4)
-        self._paint_tune_icon(
-            p, self._settings_rect,
-            theme.TEXT_MUTED if not self._hover_settings else QColor("#FFFFFF"))
-
-    def _paint_tune_icon(self, p: QPainter, rect: QRect, color: QColor) -> None:
-        p.save()
-        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        cx, cy = rect.center().x(), rect.center().y()
-        w = 15
-        left = cx - w / 2
-        pen = QPen(color)
-        pen.setWidthF(1.6)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        p.setPen(pen)
-        knobs = ((-5.5, 0.72), (0.0, 0.30), (5.5, 0.58))
-        for dy, frac in knobs:
-            y = cy + dy
-            p.drawLine(round(left), round(y), round(left + w), round(y))
-            knob = QColor(color)
-            p.setBrush(knob)
-            p.setPen(Qt.PenStyle.NoPen)
-            p.drawEllipse(round(left + w * frac) - 2, round(y) - 2, 4, 4)
-            p.setPen(pen)
-        p.restore()
-
     def _paint_empty(self, p: QPainter, accent: QColor) -> None:
         r = self.rect().adjusted(theme.PAD, theme.PAD + 12, -theme.PAD, -theme.PAD)
         p.setFont(theme.ui_font(11))
@@ -934,9 +927,9 @@ class OverlayWidget(QWidget):
 
         font_size = int(s.get("appearance", "font_size", default=12))
         cell_h = rect.height()
-        # grow with the cell so a tall strip does not render in tiny type;
+        # smaller value type + snug label/value spacing keep the strip low;
         # fit_font / _fit_value_unit only shrink from here if the width is tight
-        val_pt = int(max(9, min(font_size + 6, round(cell_h * 0.40))))
+        val_pt = int(max(8, min(font_size + 3, round(cell_h * 0.36))))
         lab_pt = int(max(7, min(font_size + 1, round(cell_h * 0.24))))
         base_label = theme.ui_font(lab_pt)
         base_value = theme.ui_font(val_pt, theme.QFont.Weight.DemiBold)
@@ -958,8 +951,8 @@ class OverlayWidget(QWidget):
 
         show_label = text_rect.height() >= 14
         if show_label:
-            label_h = max(9, round(text_rect.height() * 0.34))
-            value_h = max(9, text_rect.height() - label_h + 1)
+            label_h = max(8, round(text_rect.height() * 0.28))
+            value_h = max(9, text_rect.height() - label_h + 2)
         else:
             label_h = 0
             value_h = text_rect.height()
@@ -1018,36 +1011,35 @@ class OverlayWidget(QWidget):
 
         num_text, unit_text = theme.format_value(spec, value, temp_unit)
         right = rect.right() - 4
-        # reserve the unit column + a gap, then fit the number in what is left
-        unit_col = self._unit_col_w
-        value_zone_w = max(24, rect.width() - 12 - unit_col - 6)
-        label_zone_w = max(24, rect.width() - 12 - unit_col - 6)
+        label_zone_w = max(24, rect.width() - 12 - 36)
         label_font = theme.fit_font(base_label, spec.label, label_zone_w,
                                     text_rect.height(), min_size=6)
-        v_font, u_font, num_w, _uw = self._fit_value_unit(
-            num_text, unit_text, value_zone_w, base_value, base_unit,
+        v_font, u_font, num_w, unit_w = self._fit_value_unit(
+            num_text, unit_text, max(24, rect.width() // 2), base_value, base_unit,
             max_h=text_rect.height())
 
         # label
         p.setFont(label_font)
         p.setPen(QPen(self._label_color))
         label_rect = QRect(rect.left() + 12, text_rect.top(),
-                           max(20, rect.width() - 24 - unit_col), text_rect.height())
+                           max(20, rect.width() - 24 - num_w), text_rect.height())
         p.drawText(label_rect, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
                    theme.elided(spec.label, label_font, label_rect.width()))
 
-        # value + unit, right aligned on a shared column
-        num_rect = QRect(right - unit_col - num_w, text_rect.top(), num_w, text_rect.height())
+        # value + unit drawn snug together, right-aligned as one group
+        if unit_text:
+            x0 = right - num_w - unit_w - 3
+        else:
+            x0 = right - num_w
         p.setFont(v_font)
         p.setPen(QPen(self._val_color(spec, value, temp_unit)))
-        p.drawText(num_rect, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, num_text)
+        p.drawText(QRect(x0, text_rect.top(), num_w, text_rect.height()),
+                   Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, num_text)
         if unit_text:
             p.setFont(u_font)
             p.setPen(QPen(self._label_color))
-            unit_w = QFontMetrics(u_font).horizontalAdvance(unit_text)
-            unit_rect = QRect(right - max(unit_col, unit_w), text_rect.top(),
-                              max(unit_col, unit_w), text_rect.height())
-            p.drawText(unit_rect, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, unit_text)
+            p.drawText(QRect(x0 + num_w + 3, text_rect.top(), unit_w, text_rect.height()),
+                       Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, unit_text)
 
         if self._draw_bars:
             self._paint_bar(p, spec, bar_rect, accent)
@@ -1099,10 +1091,6 @@ class OverlayWidget(QWidget):
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if event.button() == Qt.MouseButton.LeftButton:
             pos = event.position().toPoint()
-            if self._settings_rect.contains(pos):
-                self.settingsRequested.emit()
-                event.accept()
-                return
             self._press_global = event.globalPosition().toPoint()
             self._press_geom = QRect(self.geometry())
             self._press_pos = pos
@@ -1178,8 +1166,6 @@ class OverlayWidget(QWidget):
         event.accept()
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802
-        if event.button() == Qt.MouseButton.LeftButton and self._header_rect.contains(event.position().toPoint()):
-            self.settingsRequested.emit()
         event.accept()
 
     def leaveEvent(self, _event) -> None:  # noqa: N802

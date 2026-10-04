@@ -329,10 +329,6 @@ class SettingsDialog(QDialog):
             lambda i: s.set("appearance", "layout", self.layout_combo.itemData(i)))
         row2.addWidget(self.layout_combo)
         row2.addSpacing(18)
-        self.header_cb = QCheckBox("显示标题栏")
-        self.header_cb.setChecked(bool(s.get("appearance", "show_header", default=True)))
-        self.header_cb.toggled.connect(lambda on: s.set("appearance", "show_header", bool(on)))
-        row2.addWidget(self.header_cb)
         self.bars_cb = QCheckBox("显示进度条")
         self.bars_cb.setChecked(bool(s.get("appearance", "show_bars", default=True)))
         self.bars_cb.toggled.connect(lambda on: s.set("appearance", "show_bars", bool(on)))
@@ -468,7 +464,7 @@ class SettingsDialog(QDialog):
         grid.setColumnMinimumWidth(1, 226)
         grid.setColumnStretch(2, 1)
 
-        hint = QLabel("提示：拖动浮窗边缘或四角可调整大小，双击标题栏打开设置。"
+        hint = QLabel("提示：拖动浮窗边缘或四角可调整大小，右键浮窗打开设置。"
                       "全屏独占游戏请使用「无边框窗口化」模式才能看到浮窗。")
         hint.setObjectName("Hint")
         hint.setWordWrap(True)
@@ -546,7 +542,6 @@ class SettingsDialog(QDialog):
         self.radius.set_value(int(s.get("appearance", "corner_radius", default=14)))
         self.layout_combo.setCurrentIndex(max(0, self.layout_combo.findData(
             s.get("appearance", "layout", default="stack"))))
-        self.header_cb.setChecked(bool(s.get("appearance", "show_header", default=True)))
         self.bars_cb.setChecked(bool(s.get("appearance", "show_bars", default=True)))
 
         self.interval.setValue(int(s.get("sampling", "interval_ms", default=500)))
