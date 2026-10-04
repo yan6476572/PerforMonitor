@@ -1,4 +1,4 @@
-# PerformanceMonitor
+# PerformanceMonitor(电脑性能监控)
 
 > 轻量、置顶、可自由拖动的桌面性能 HUD——用一个小浮窗实时看懂你的电脑。
 
