@@ -38,7 +38,7 @@
 | --- | --- |
 | ![HUD](docs/screenshots/hud-default.png) | ![圆盘悬停网速](docs/screenshots/mem-circle-net-hover.png) |
 
-| 设置界面 | 打包版运行效果 |
+| 设置界面 | 运行效果 |
 | --- | --- |
 | ![设置](docs/screenshots/exe-settings.png) | ![运行](docs/screenshots/exe-running.png) |
 
