@@ -933,7 +933,7 @@ class OverlayWidget(QWidget):
         lab_pt = int(max(8, min(font_size + 3, round(cell_h * 0.30))))
         base_label = theme.ui_font(lab_pt)
         base_value = theme.ui_font(val_pt, theme.QFont.Weight.DemiBold)
-        base_unit = theme.ui_font(max(7, lab_pt - 1))
+        base_unit = theme.ui_font(val_pt)   # unit matches the value size
 
         bar_h = 5.0 if self._draw_bars else 0.0
         pad = 2
