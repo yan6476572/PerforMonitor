@@ -26,9 +26,9 @@ BORDER_COLOR = QColor(255, 255, 255, 30)
 class NetSpeedCard(QWidget):
     """Click-through pill that shows ↑/↓ throughput beside the gauge."""
 
-    ARROW_CX = 14.0
-    TEXT_X = 25.0
-    PAD_RIGHT = 12.0
+    ARROW_CX = 12.0
+    TEXT_X = 21.0
+    PAD_RIGHT = 9.0
 
     def __init__(self) -> None:
         super().__init__(
@@ -57,9 +57,9 @@ class NetSpeedCard(QWidget):
         fm = QFontMetrics(self._font)
         text_w = max(fm.horizontalAdvance(theme.format_speed(self._up)),
                      fm.horizontalAdvance(theme.format_speed(self._down)))
-        row_h = fm.height() + 6
+        row_h = fm.height() + 2
         self.setFixedSize(int(self.TEXT_X + text_w + self.PAD_RIGHT),
-                          int(row_h * 2 + 12))
+                          int(row_h * 2 + 8))
 
     # -- painting ------------------------------------------------------
     def paintEvent(self, _event) -> None:  # noqa: N802
@@ -71,7 +71,7 @@ class NetSpeedCard(QWidget):
         p.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 12, 12)
 
         fm = QFontMetrics(self._font)
-        row_h = fm.height() + 6
+        row_h = fm.height() + 2
         top = (self.height() - row_h * 2) / 2.0
         for i, (value, color) in enumerate(((self._up, UP_COLOR),
                                             (self._down, DOWN_COLOR))):

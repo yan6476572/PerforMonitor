@@ -195,10 +195,10 @@ class OverlayWidget(QWidget):
         card.raise_()
 
     def _position_net_card(self) -> None:
-        """Park the card just left of the gauge, vertically centred."""
+        """Park the card flush against the gauge's left edge, vertically centred."""
         card = self._net_card
         g = self.geometry()
-        gap = 6
+        gap = 0  # tangent to the ring
         x = g.left() - card.width() - gap
         y = g.top() + (g.height() - card.height()) // 2
         try:
