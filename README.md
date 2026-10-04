@@ -16,9 +16,7 @@
 │ ▌内存占用                 51 % │
 │ ▌实时帧率                143   │
 └────────────────────────────┘
-<img width="993" height="108" alt="image" src="https://github.com/user-attachments/assets/14a3667b-51a9-4315-a1e4-3657b748f9d7" />
-<img width="237" height="307" alt="image" src="https://github.com/user-attachments/assets/c731e397-1841-4759-ad53-ff397ae9589c" />
-<img width="90" height="90" alt="image" src="https://github.com/user-attachments/assets/48b551af-0619-4c98-9f9e-041e93f49dba" />
+
 
 
 
