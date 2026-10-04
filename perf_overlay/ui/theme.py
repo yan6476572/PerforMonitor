@@ -122,6 +122,16 @@ def format_value(spec: MetricSpec, value: Optional[float], temp_unit: str = "C")
     return f"{value:.0f}", spec.unit
 
 
+def format_speed(bps: Optional[float]) -> str:
+    """Network throughput (bytes/s) -> short text like ``16.0K/s`` / ``1.25M/s``."""
+    if bps is None:
+        return "--"
+    k = max(0.0, float(bps)) / 1024.0
+    if k >= 1024.0:
+        return f"{k / 1024.0:.2f}M/s"
+    return f"{k:.1f}K/s"
+
+
 def value_color(spec: MetricSpec, value: Optional[float], temp_unit: str = "C",
                 text: Optional[QColor] = None) -> QColor:
     """Colour for a metric value.  ``text`` overrides the normal (healthy) colour."""

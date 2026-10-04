@@ -16,6 +16,7 @@ from .. import platform_win
 from ..config import Settings
 from ..metrics import GROUP_COLORS, METRIC_BY_KEY, METRIC_SPECS, Metrics, MetricSpec
 from . import theme
+from .net_card import NetSpeedCard
 
 Edge = Tuple[bool, bool, bool, bool]  # left, right, top, bottom
 
@@ -80,6 +81,10 @@ class OverlayWidget(QWidget):
         self._boost_timer.timeout.connect(self._boost_tick)
         self._was_circular = False
 
+        # network-speed hover card (memory-only circular gauge)
+        self._hover_disc = False
+        self._net_card = NetSpeedCard()
+
         self.settings.subscribe(self._on_settings_changed)
         self.apply_settings()
 
@@ -116,12 +121,17 @@ class OverlayWidget(QWidget):
                 self.setGeometry(g.center().x() - side_w // 2,
                                  g.center().y() - side_h // 2, side_w, side_h)
         self._was_circular = circ
+        self._hover_disc = False
+        self._update_net_card()
         self._relayout()
         self.update()
 
     def set_metrics(self, m: Metrics) -> None:
         self.metrics = m
         self._update_scales(m)
+        if self._net_card.isVisible():
+            self._net_card.set_speeds(m.net_up, m.net_down)
+            self._position_net_card()
         self.update()
 
     def _update_scales(self, m: Metrics) -> None:
@@ -158,6 +168,51 @@ class OverlayWidget(QWidget):
         dy = pos.y() - circ.center().y()
         r = circ.width() / 2.0
         return (dx * dx + dy * dy) <= (r * 0.50) ** 2
+
+    def _in_disc(self, pos) -> bool:
+        """Anywhere on the memory disc (ring included) -> show the net card."""
+        circ = self._circle_rect()
+        dx = pos.x() - circ.center().x()
+        dy = pos.y() - circ.center().y()
+        r = circ.width() / 2.0
+        return (dx * dx + dy * dy) <= (r * 0.96) ** 2
+
+    # ------------------------------------------------------------------
+    # network-speed hover card (circular gauge only)
+    # ------------------------------------------------------------------
+    def _update_net_card(self) -> None:
+        card = self._net_card
+        show = (self.isVisible() and self._is_circular()
+                and self._hover_disc and not self._boost_active)
+        if not show:
+            if card.isVisible():
+                card.hide()
+            return
+        card.set_speeds(self.metrics.net_up, self.metrics.net_down)
+        self._position_net_card()
+        if not card.isVisible():
+            card.show()
+        card.raise_()
+
+    def _position_net_card(self) -> None:
+        """Park the card just left of the gauge, vertically centred."""
+        card = self._net_card
+        g = self.geometry()
+        gap = 6
+        x = g.left() - card.width() - gap
+        y = g.top() + (g.height() - card.height()) // 2
+        try:
+            screen = self.screen()
+            avail = screen.availableGeometry() if screen else None
+            if avail is not None and avail.width() > 10:
+                if x < avail.left() + 2:  # no room on the left -> flip right
+                    x = g.right() + gap
+                    if x + card.width() > avail.right() - 2:
+                        x = avail.right() - card.width() - 2
+                y = max(avail.top() + 2, min(y, avail.bottom() - card.height() - 2))
+        except Exception:
+            pass
+        card.move(x, y)
 
     def _resize_margin(self) -> int:
         # keep a grabable rim around the compact circular widget
@@ -297,11 +352,21 @@ class OverlayWidget(QWidget):
         super().resizeEvent(event)
         self._relayout()
 
+    def moveEvent(self, event) -> None:  # noqa: N802
+        super().moveEvent(event)
+        if self._net_card.isVisible():
+            self._position_net_card()
+
     def showEvent(self, event) -> None:  # noqa: N802
         super().showEvent(event)
         platform_win.apply_overlay_styles(self)
         platform_win.force_topmost(self)
         self._relayout()
+
+    def hideEvent(self, event) -> None:  # noqa: N802
+        self._hover_disc = False
+        self._update_net_card()
+        super().hideEvent(event)
 
     # ------------------------------------------------------------------
     # painting
@@ -681,6 +746,8 @@ class OverlayWidget(QWidget):
         cur = self.metrics.mem_usage
         self._boost_start_pct = float(cur) if cur is not None else 0.0
         self._boost_end_pct = self._boost_start_pct
+        self._hover_disc = False
+        self._update_net_card()
         self._boost_timer.start()
         self.update()
 
@@ -712,7 +779,10 @@ class OverlayWidget(QWidget):
             self._boost_t = 0.0
             self._boost_freed = 0.0
             self._boost_end_pct = 0.0
+            # mouse may still sit on the disc -> bring the card back
+            self._hover_disc = self._in_disc(self.mapFromGlobal(QCursor.pos()))
         self.update()
+        self._update_net_card()
 
     def _paint_boost(self, p: QPainter, rect: QRect) -> None:
         """Rectangular-mode accelerate animation (sweep + glow + result)."""
@@ -1068,8 +1138,12 @@ class OverlayWidget(QWidget):
             row = self._row_at(pos)
             if self._is_circular():
                 self._hover_mem = (self._in_center_hit(pos) and not self._boost_active)
+                hover_disc = self._in_disc(pos) and not self._boost_active
             else:
                 self._hover_mem = bool(row and row["spec"].key == "mem_usage" and not self._boost_active)
+                hover_disc = False
+            self._hover_disc = hover_disc
+            self._update_net_card()
             if self._hover_mem:
                 self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             else:
@@ -1108,6 +1182,8 @@ class OverlayWidget(QWidget):
 
     def leaveEvent(self, _event) -> None:  # noqa: N802
         self._hover_settings = False
+        self._hover_disc = False
+        self._update_net_card()
         self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
         self.update()
 

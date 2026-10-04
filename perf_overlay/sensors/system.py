@@ -263,6 +263,7 @@ class SystemProvider(Provider):
                 self._lhm = LhmReader()
         self._amd = AmdGpuReader() if sys.platform.startswith("linux") else None
         self._acpi_warned = False
+        self._prev_net = None  # last (net_io_counters, monotonic_time)
 
     # -- temperatures -------------------------------------------------
     def _cpu_temp_linux(self) -> Optional[float]:
@@ -319,6 +320,31 @@ class SystemProvider(Provider):
             return v if v is not None else self._lhm.read_acpi_temp()
         return None
 
+    def _net_speed(self, out: Metrics) -> None:
+        """Global upload/download throughput (bytes/s) from psutil counters."""
+        if psutil is None:
+            return
+        try:
+            nc = psutil.net_io_counters()
+            now = time.monotonic()
+        except Exception:
+            return
+        prev = self._prev_net
+        self._prev_net = (nc, now)
+        if prev is None:
+            return
+        pc, pt = prev
+        dt = now - pt
+        if dt <= 0.05:
+            return
+        up = (nc.bytes_sent - pc.bytes_sent) / dt
+        down = (nc.bytes_recv - pc.bytes_recv) / dt
+        # counter reset (e.g. adapter reconnect) -> skip one sample
+        if up >= 0:
+            out.set("net_up", up, self.name)
+        if down >= 0:
+            out.set("net_down", down, self.name)
+
     # -- poll ---------------------------------------------------------
     def poll(self, out: Metrics) -> None:
         if psutil is not None:
@@ -330,6 +356,7 @@ class SystemProvider(Provider):
                 out.set("mem_usage", psutil.virtual_memory().percent, self.name)
             except Exception:
                 pass
+        self._net_speed(out)
 
         lhm = None
         if self._lhm_native is not None and self._lhm_native.available:

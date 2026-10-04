@@ -17,9 +17,6 @@
 │ ▌实时帧率                143   │
 └────────────────────────────┘
 
-
-
-
 ```
 
 ---
@@ -30,6 +27,8 @@
 | 功能 | 说明 |
 | --- | --- |
 | 8 项指标 | CPU 温度/功耗/占用、GPU 温度/功耗/占用、内存占用、实时帧率 |
+| 内存圆盘模式 | 只勾选「内存占用」时浮窗变成圆形仪表盘（PC 管家风格） |
+| 悬停看网速 | 圆盘模式下，鼠标悬停内存圆盘时在旁边显示实时 **上行 / 下行网速**（↑蓝 ↓绿，如 `16.0K/s`），移开即恢复原样 |
 | 横向排布 | 每个指标一行，`标签 …… 数值 单位` 左右横排；下方带实时进度条 |
 | 始终置顶 | `WindowStaysOnTopHint` + Win32 `HWND_TOPMOST` 双重保证，并每 3 秒自动重新置顶 |
 | 逐项开关 | 设置里可单独勾选要显示的参数，关闭即隐藏 |
@@ -157,6 +156,7 @@ pyinstaller PerfOverlay.spec
 | --- | --- | --- |
 | CPU 占用率 | `psutil` | `psutil` |
 | 内存占用率 | `psutil` | `psutil` |
+| 网速（圆盘悬停） | `psutil.net_io_counters` 差分 | `psutil.net_io_counters` 差分 |
 | CPU 温度 | LibreHardwareMonitor (WMI) → ACPI 热区 | `psutil.sensors_temperatures`（coretemp / k10temp / zenpower …） |
 | CPU 功耗 | LibreHardwareMonitor (WMI) | RAPL `/sys/class/powercap/*/energy_uj` |
 | GPU 温度/功耗/占用 | NVIDIA NVML（`nvidia-ml-py`）或 LibreHardwareMonitor | NVML；AMD 读 `amdgpu` sysfs |
@@ -232,9 +232,11 @@ PerfOverlay/
 │   └── ui/
 │       ├── theme.py            # 配色、字体、绘制助手、QSS
 │       ├── overlay.py          # 浮窗（绘制 / 拖动 / 缩放 / 菜单）
+│       ├── net_card.py         # 内存圆盘悬停网速卡片
 │       └── settings.py         # 设置面板（实时预览）
 ├── tools/preview.py            # 用假数据渲染 UI 截图
 ├── tools/selftest.py           # 功能自测（拖动/缩放/开关/持久化）
+├── tools/test_net_hover.py     # 网速悬停卡片自测
 ├── dist/PerfOverlay.exe        # 打包好的 Windows 可执行文件
 ├── docs/screenshots/           # UI 截图（含 exe 自导出的验证图）
 ├── docs/BUILD-WINDOWS.md       # Windows 打包说明
@@ -251,6 +253,9 @@ QT_QPA_PLATFORM=offscreen python tools/preview.py
 
 # 功能自测：拖动 / 边缘缩放 / 逐项开关 / 设置持久化 / 置顶 / 穿透
 QT_QPA_PLATFORM=offscreen python tools/selftest.py
+
+# 网速悬停卡片自测（截图输出到 build/test_net_hover/）
+python tools/test_net_hover.py
 ```
 
 设置采用**实时预览**：在设置面板里的每一次改动都会立即作用到浮窗，

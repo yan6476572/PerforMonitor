@@ -19,6 +19,10 @@ class Metrics:
     mem_usage: Optional[float] = None
     fps: Optional[float] = None
 
+    # network throughput in bytes/s (hover card on the memory-only gauge)
+    net_up: Optional[float] = None
+    net_down: Optional[float] = None
+
     # metric key -> name of the provider that produced it (for tooltips/debug)
     sources: Dict[str, str] = field(default_factory=dict)
 
