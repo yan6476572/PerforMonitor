@@ -31,8 +31,10 @@ class OverlayWidget(QWidget):
     MIN_WIDTH = 178
     MIN_HEIGHT = 84
     # circular gauge (memory-only) — compact, matches system widget size
-    CIRC_MIN = 60
-    CIRC_NICE = 60          # default = smallest allowed
+    CIRC_MIN = 48
+    CIRC_NICE = 48          # default = smallest allowed
+    CIRC_LEGACY = 60        # pre-shrink default; saved sizes <= this were
+                            # never deliberately enlarged by the user
 
     def __init__(self, settings: Settings, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)

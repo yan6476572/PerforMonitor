@@ -122,6 +122,9 @@ class PerfOverlayApp:
         h = int(s.get("window", "height", default=336))
         # 圆形模式用圆形的最小尺寸；矩形模式用矩形最小尺寸
         if self.overlay._is_circular():
+            # 旧默认的 60px 圆盘视为"未自定义"，升级后直接用新的更小尺寸
+            if (w <= OverlayWidget.CIRC_LEGACY and h <= OverlayWidget.CIRC_LEGACY):
+                w = h = OverlayWidget.CIRC_NICE
             w = max(self.overlay.CIRC_MIN, w)
             h = max(self.overlay.CIRC_MIN, h)
         else:
