@@ -39,11 +39,13 @@ class OverlayWidget(QWidget):
     LIST_WIDTH = 231
     LIST_HEIGHT = 332
     METRIC_SLOTS = 8
-    # circular gauge (memory-only) — compact, matches system widget size
-    CIRC_MIN = 48
-    CIRC_NICE = 48          # default = smallest allowed
-    CIRC_LEGACY = 60        # pre-shrink default; saved sizes <= this were
-                            # never deliberately enlarged by the user
+    # circular gauge (memory-only) — compact, matches system widget size.
+    # 72 logical px == the approved on-screen size from the 150%-scaling
+    # days; the app now renders 1:1 physical so the number is the size.
+    CIRC_MIN = 72
+    CIRC_NICE = 72          # default = smallest allowed
+    CIRC_LEGACY = 68        # saved sizes <= this were never deliberately
+                            # enlarged by the user
 
     def __init__(self, settings: Settings, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
