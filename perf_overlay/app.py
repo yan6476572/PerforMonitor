@@ -193,6 +193,9 @@ class PerfOverlayApp:
         self.tray = QSystemTrayIcon(make_icon(accent))
         self.tray.setToolTip(f"{__app_name__} {__version__}")
         menu = QMenu()
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        menu.setStyleSheet(theme.menu_qss(accent))
+        menu.setFont(theme.ui_font(16))
 
         act_show = QAction("显示 / 隐藏浮窗", menu)
         act_show.triggered.connect(self.toggle_overlay)

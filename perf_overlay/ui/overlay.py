@@ -1201,6 +1201,10 @@ class OverlayWidget(QWidget):
     def _show_menu(self, global_pos) -> None:
         s = self.settings
         menu = QMenu(self)
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        menu.setStyleSheet(theme.menu_qss(
+            s.get("appearance", "accent_color", default=theme.DEFAULT_ACCENT)))
+        menu.setFont(theme.ui_font(16))
 
         act_settings = QAction("⚙  设置…", menu)
         act_settings.triggered.connect(self.settingsRequested.emit)

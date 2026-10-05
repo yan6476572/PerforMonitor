@@ -305,3 +305,31 @@ def settings_qss(accent: str = DEFAULT_ACCENT) -> str:
         "accentLight": lighten(a, 0.22).name(),
         "accentDark": darken(a, 0.22).name(),
     }
+
+
+MENU_QSS = """
+QMenu {
+    background-color: #171A23;
+    color: #EAF0FA;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    padding: 6px;
+    font-size: 16px;
+}
+QMenu::item {
+    padding: 8px 34px 8px 14px;
+    border-radius: 7px;
+    background: transparent;
+}
+QMenu::item:selected { background-color: %(accent)s; color: #0B0D13; }
+QMenu::item:disabled { color: #5D6577; }
+QMenu::separator { height: 1px; background: rgba(255,255,255,0.09); margin: 5px 10px; }
+QMenu::indicator { width: 17px; height: 17px; margin-left: 4px; }
+"""
+
+
+def menu_qss(accent: str = DEFAULT_ACCENT) -> str:
+    a = QColor(accent)
+    if not a.isValid():
+        a = QColor(DEFAULT_ACCENT)
+    return MENU_QSS % {"accent": a.name()}
