@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import List, Optional, Tuple
 
-from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer, Signal
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QAction, QColor, QCursor, QFontMetrics, QLinearGradient, QMouseEvent,
     QPainter, QPen, QPolygon,
@@ -28,8 +28,17 @@ class OverlayWidget(QWidget):
     memoryBoostRequested = Signal()
 
     RESIZE_MARGIN = 9
-    MIN_WIDTH = 154
-    MIN_HEIGHT = 64
+    MIN_WIDTH = 110
+    MIN_HEIGHT = 40
+    # fixed rectangular UI sizes (8 metric slots); the long side scales
+    # with the number of enabled metrics, the short side never changes:
+    #   horizontal strip  945 x 96   (width scales)
+    #   vertical list     231 x 332  (height scales)
+    STRIP_WIDTH = 945
+    STRIP_HEIGHT = 96
+    LIST_WIDTH = 231
+    LIST_HEIGHT = 332
+    METRIC_SLOTS = 8
     # circular gauge (memory-only) — compact, matches system widget size
     CIRC_MIN = 48
     CIRC_NICE = 48          # default = smallest allowed
@@ -89,7 +98,6 @@ class OverlayWidget(QWidget):
 
         # content-driven shrink state
         self._shrinking = False
-        self._cols = 1
 
         self.settings.subscribe(self._on_settings_changed)
         self.apply_settings()
@@ -238,11 +246,24 @@ class OverlayWidget(QWidget):
             col = QColor("#34D399")
         return track, col
 
+    def _layout_mode(self) -> str:
+        """Rectangular flow direction: "h" (horizontal strip) or "v" (list)."""
+        mode = str(self.settings.get("appearance", "layout", default="v"))
+        return "h" if mode in ("h", "strip", "hstrip") else "v"
+
+    def _canonical_size(self) -> QSize:
+        """Fixed window size for the current layout mode and metric count."""
+        n = max(1, len(self._enabled_specs()))
+        if self._layout_mode() == "h":
+            return QSize(round(self.STRIP_WIDTH * n / self.METRIC_SLOTS),
+                         self.STRIP_HEIGHT)
+        return QSize(self.LIST_WIDTH,
+                     round(self.LIST_HEIGHT * n / self.METRIC_SLOTS))
+
     def _relayout(self) -> None:
         s = self.settings
         font_size = int(s.get("appearance", "font_size", default=12))
         show_bars = bool(s.get("appearance", "show_bars", default=True))
-        grid = str(s.get("appearance", "layout", default="stack")) == "grid"
 
         specs = self._enabled_specs()
         win_w = self.rect().width()
@@ -264,7 +285,8 @@ class OverlayWidget(QWidget):
             }]
             return
 
-        landscape = win_w > win_h
+        # flow direction follows the layout mode, not the window aspect
+        landscape = self._layout_mode() == "h"
 
         # strips: tighter padding so the wide edge is fully used
         pad_x = 8 if landscape else theme.PAD
@@ -284,22 +306,20 @@ class OverlayWidget(QWidget):
         row_h_nat = (font_size + 17) if show_bars else (font_size + 9)
         gap = 5 if landscape else 5
 
-        # Primary axis follows the long edge:
-        #   wide strip  -> metrics flow left-to-right (wrap to next band)
-        #   tall panel  -> metrics flow top-to-bottom (optional 2-col grid)
+        # Primary axis follows the layout mode:
+        #   horizontal strip -> all metrics in one band
+        #   vertical list    -> metrics flow top-to-bottom, single column
         self._landscape = landscape
 
         if not specs:
             cols = 1
             rows_count = 0
         elif landscape:
-            # each metric gets its own cell; how many fit side by side
-            min_cell = max(56, font_size * 4 + 12)
-            cols = max(1, min(len(specs), (inner.width() + gap) // (min_cell + gap)))
-            rows_count = (len(specs) + cols - 1) // cols
+            cols = len(specs)
+            rows_count = 1
         else:
-            cols = 2 if (grid and inner.width() >= 300) else 1
-            rows_count = (len(specs) + cols - 1) // cols
+            cols = 1
+            rows_count = len(specs)
 
         available = bottom - inner.top()
         gap_total = gap * max(0, rows_count - 1)
@@ -338,54 +358,20 @@ class OverlayWidget(QWidget):
         self._inner = inner
         self._header_rect = QRect()
         self._settings_rect = QRect()
-        self._cols = cols
-        self._shrink_to_content()
+        self._apply_canonical_size()
 
     # ------------------------------------------------------------------
-    # content-driven sizing: keep the short side snug around the metrics
+    # content-driven sizing: rectangular windows snap to their fixed size
     # ------------------------------------------------------------------
-    def _natural_stack_width(self) -> int:
-        """Width a tall single-column panel needs: label + value + unit."""
-        s = self.settings
-        font_size = int(s.get("appearance", "font_size", default=12))
-        temp_unit = str(s.get("sampling", "temp_unit", default="C"))
-        specs = self._enabled_specs() or [METRIC_BY_KEY["mem_usage"]]
-        fm_label = QFontMetrics(theme.ui_font(max(8, font_size - 2)))
-        fm_value = QFontMetrics(theme.ui_font(max(9, font_size + 1),
-                                              theme.QFont.Weight.DemiBold))
-        fm_unit = QFontMetrics(theme.ui_font(max(8, font_size - 2)))
-        label_w = max(fm_label.horizontalAdvance(sp.label) for sp in specs)
-        value_w = fm_value.horizontalAdvance("888.8")   # widest realistic number
-        unit_w = max(fm_unit.horizontalAdvance(theme.display_unit(sp, temp_unit))
-                     for sp in specs)
-        # PAD + tick/label indent + label<->value gap + unit gap + right margin
-        return theme.PAD + 12 + label_w + 14 + value_w + 3 + unit_w + 4
-
-    def _natural_strip_height(self) -> int:
-        """Height the landscape strip needs at its natural row height."""
-        s = self.settings
-        font_size = int(s.get("appearance", "font_size", default=12))
-        show_bars = bool(s.get("appearance", "show_bars", default=True))
-        rows_count = max(1, len({r["rect"].top() for r in self._rows})) if self._rows else 1
-        pad_y = max(4, theme.PAD // 4)
-        row_h = (font_size + 17) if show_bars else (font_size + 9)
-        return pad_y * 2 + rows_count * row_h + 5 * (rows_count - 1) + 3  # 3 = FOOT_GAP
-
-    def _shrink_to_content(self) -> None:
-        """Narrow the short side to hug the metrics; never grow it back."""
+    def _apply_canonical_size(self) -> None:
+        """The window size is dictated by layout mode + metric count."""
         if self._is_circular() or self._shrinking:
             return
+        want = self._canonical_size()
         g = self.geometry()
-        if self._landscape:
-            nat = self._natural_strip_height()
-            if g.height() - nat > 3:
-                g.setHeight(max(self.minimumHeight(), nat))
-                self._apply_shrink(g)
-        elif self._cols <= 1:  # never fight the two-column grid layout
-            nat = self._natural_stack_width()
-            if g.width() - nat > 3:
-                g.setWidth(max(self.minimumWidth(), nat))
-                self._apply_shrink(g)
+        if g.size() != want:
+            g.setSize(want)
+            self._apply_shrink(g)
 
     def _apply_shrink(self, g: QRect) -> None:
         self._shrinking = True

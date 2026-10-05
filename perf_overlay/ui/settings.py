@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import copy
-from typing import Callable, Optional
+from typing import Optional
 
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QMouseEvent, QPainter, QPen, QPolygon
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QColorDialog, QComboBox, QDialog, QFileDialog,
-    QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea,
-    QSizePolicy, QSlider, QSpinBox, QVBoxLayout, QWidget,
+    QApplication, QCheckBox, QColorDialog, QComboBox, QDialog,
+    QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QRadioButton,
+    QScrollArea, QSizePolicy, QSlider, QVBoxLayout, QWidget,
 )
 
 from ..config import Settings
@@ -197,7 +197,6 @@ class SettingsDialog(QDialog):
         self._path_edits = []
         self._build_metrics_section()
         self._build_appearance_section()
-        self._build_sampling_section()
         self._build_window_section()
         self.body_lay.addStretch(1)
 
@@ -309,25 +308,19 @@ class SettingsDialog(QDialog):
         self.win_opacity.valueChanged.connect(lambda val: s.set("appearance", "window_opacity", int(val)))
         v.addWidget(self.win_opacity)
 
-        self.font_size = SliderRow("字号", int(s.get("appearance", "font_size", default=12)), 9, 20, "px")
-        self.font_size.valueChanged.connect(lambda val: s.set("appearance", "font_size", int(val)))
-        v.addWidget(self.font_size)
-
-        self.radius = SliderRow("圆角", int(s.get("appearance", "corner_radius", default=14)), 0, 24, "px")
-        self.radius.valueChanged.connect(lambda val: s.set("appearance", "corner_radius", int(val)))
-        v.addWidget(self.radius)
-
         row2 = QHBoxLayout()
         row2.setSpacing(12)
         row2.addWidget(self._field("布局"))
-        self.layout_combo = Dropdown()
-        self.layout_combo.addItem("单列堆叠", "stack")
-        self.layout_combo.addItem("双列紧凑", "grid")
-        idx = self.layout_combo.findData(s.get("appearance", "layout", default="stack"))
-        self.layout_combo.setCurrentIndex(max(0, idx))
-        self.layout_combo.currentIndexChanged.connect(
-            lambda i: s.set("appearance", "layout", self.layout_combo.itemData(i)))
-        row2.addWidget(self.layout_combo)
+        self.radio_h = QRadioButton("横排显示")
+        self.radio_v = QRadioButton("纵排显示")
+        if self._layout_mode_h(s):
+            self.radio_h.setChecked(True)
+        else:
+            self.radio_v.setChecked(True)
+        self.radio_h.toggled.connect(self._on_layout_mode)
+        row2.addWidget(self.radio_h)
+        row2.addSpacing(8)
+        row2.addWidget(self.radio_v)
         row2.addSpacing(18)
         self.bars_cb = QCheckBox("显示进度条")
         self.bars_cb.setChecked(bool(s.get("appearance", "show_bars", default=True)))
@@ -336,99 +329,12 @@ class SettingsDialog(QDialog):
         row2.addStretch(1)
         v.addLayout(row2)
 
-    def _build_sampling_section(self) -> None:
-        v = self._section("数据与采样")
-        s = self.settings
+    @staticmethod
+    def _layout_mode_h(s: Settings) -> bool:
+        return str(s.get("appearance", "layout", default="v")) in ("h", "strip", "hstrip")
 
-        row = QHBoxLayout()
-        row.setSpacing(12)
-        row.addWidget(self._field("刷新间隔"))
-        self.interval = QSpinBox()
-        self.interval.setRange(100, 5000)
-        self.interval.setSingleStep(100)
-        self.interval.setSuffix(" ms")
-        self.interval.setValue(int(s.get("sampling", "interval_ms", default=500)))
-        self.interval.valueChanged.connect(lambda val: s.set("sampling", "interval_ms", int(val)))
-        row.addWidget(self.interval)
-        row.addSpacing(18)
-        row.addWidget(self._field("温度单位"))
-        self.unit_combo = Dropdown()
-        self.unit_combo.addItem("摄氏度 °C", "C")
-        self.unit_combo.addItem("华氏度 °F", "F")
-        self.unit_combo.setCurrentIndex(max(0, self.unit_combo.findData(
-            s.get("sampling", "temp_unit", default="C"))))
-        self.unit_combo.currentIndexChanged.connect(
-            lambda i: s.set("sampling", "temp_unit", self.unit_combo.itemData(i)))
-        row.addWidget(self.unit_combo)
-        row.addStretch(1)
-        v.addLayout(row)
-
-        row2 = QHBoxLayout()
-        row2.setSpacing(12)
-        row2.addWidget(self._field("GPU 序号"))
-        self.gpu_index = QSpinBox()
-        self.gpu_index.setRange(0, 7)
-        self.gpu_index.setValue(int(s.get("sampling", "gpu_index", default=0) or 0))
-        self.gpu_index.valueChanged.connect(lambda val: s.set("sampling", "gpu_index", int(val)))
-        self.gpu_index.setToolTip("多显卡时选择要监控的 NVIDIA GPU（0 为第一块）")
-        row2.addWidget(self.gpu_index)
-        row2.addStretch(1)
-        v.addLayout(row2)
-
-        row3 = QHBoxLayout()
-        row3.setSpacing(12)
-        row3.addWidget(self._field("帧率来源"))
-        self.fps_combo = Dropdown()
-        for text, data in (("自动检测", "auto"), ("PresentMon", "presentmon"),
-                           ("数据文件", "file"), ("关闭", "off")):
-            self.fps_combo.addItem(text, data)
-        self.fps_combo.setCurrentIndex(max(0, self.fps_combo.findData(
-            s.get("sampling", "fps_source", default="auto"))))
-        self.fps_combo.currentIndexChanged.connect(self._on_fps_mode)
-        row3.addWidget(self.fps_combo)
-        row3.addStretch(1)
-        v.addLayout(row3)
-
-        self.pm_row, self.pm_edit = self._path_row(
-            "PresentMon 路径", s.get("sampling", "presentmon_path", default=""),
-            lambda p: s.set("sampling", "presentmon_path", p),
-            "可执行文件 (PresentMon*.exe);exe (*.exe);;所有文件 (*)")
-        v.addLayout(self.pm_row)
-
-        self.file_row, self.file_edit = self._path_row(
-            "FPS 数据文件", s.get("sampling", "fps_file", default=""),
-            lambda p: s.set("sampling", "fps_file", p),
-            "文本文件 (*.txt *.csv *.json);;所有文件 (*)")
-        v.addLayout(self.file_row)
-
-        self.fps_hint = QLabel()
-        self.fps_hint.setObjectName("Hint")
-        self.fps_hint.setWordWrap(True)
-        v.addWidget(self.fps_hint)
-        self._on_fps_mode(self.fps_combo.currentIndex())
-
-    def _path_row(self, label: str, value: str, on_change: Callable[[str], None],
-                  filt: str):
-        row = QHBoxLayout()
-        row.setSpacing(12)
-        row.addWidget(self._field(label))
-        edit = QLineEdit(value or "")
-        edit.setPlaceholderText("（留空则自动查找）")
-        edit.textChanged.connect(on_change)
-        self._path_edits.append(edit)
-        row.addWidget(edit, 1)
-        browse = QPushButton("浏览…")
-        browse.setObjectName("Ghost")
-        browse.setFixedWidth(72)
-
-        def _browse() -> None:
-            path, _ = QFileDialog.getOpenFileName(self, label, "", filt)
-            if path:
-                edit.setText(path)
-
-        browse.clicked.connect(_browse)
-        row.addWidget(browse)
-        return row, edit
+    def _on_layout_mode(self) -> None:
+        self.settings.set("appearance", "layout", "h" if self.radio_h.isChecked() else "v")
 
     def _build_window_section(self) -> None:
         v = self._section("窗口行为")
@@ -464,8 +370,8 @@ class SettingsDialog(QDialog):
         grid.setColumnMinimumWidth(1, 226)
         grid.setColumnStretch(2, 1)
 
-        hint = QLabel("提示：拖动浮窗边缘或四角可调整大小，右键浮窗打开设置。"
-                      "全屏独占游戏请使用「无边框窗口化」模式才能看到浮窗。")
+        hint = QLabel("提示：浮窗尺寸随布局（横排 / 纵排）和指标数量自动调整，"
+                      "右键浮窗打开设置。全屏独占游戏请使用「无边框窗口化」模式才能看到浮窗。")
         hint.setObjectName("Hint")
         hint.setWordWrap(True)
         grid.addWidget(hint, 2, 0, 1, 2)
@@ -499,30 +405,6 @@ class SettingsDialog(QDialog):
         self.settings.set("appearance", "accent_color", color)
         self.setStyleSheet(theme.settings_qss(color))
 
-    def _on_fps_mode(self, index: int) -> None:
-        mode = self.fps_combo.itemData(index) or "auto"
-        self.settings.set("sampling", "fps_source", mode)
-        show_pm = mode in ("auto", "presentmon")
-        show_file = mode in ("auto", "file")
-        self._set_row_visible(self.pm_row, show_pm)
-        self._set_row_visible(self.file_row, show_file)
-        tips = {
-            "auto": "自动检测：优先使用 PresentMon（Windows）；否则读取下方数据文件。",
-            "presentmon": "使用 Intel PresentMon 采集任意 3D 应用的实时帧率。"
-                          "下载 https://github.com/GameTechDev/PresentMon ，解压后选择 exe 即可。",
-            "file": "从外部工具写入的文本文件读取帧率数字，例如 MangoHud 的 output_file。",
-            "off": "不采集帧率，浮窗中显示为 --。",
-        }
-        self.fps_hint.setText(tips.get(mode, ""))
-
-    @staticmethod
-    def _set_row_visible(row: QHBoxLayout, visible: bool) -> None:
-        for i in range(row.count()):
-            item = row.itemAt(i)
-            w = item.widget()
-            if w is not None:
-                w.setVisible(visible)
-
     # -- buttons ------------------------------------------------------
     def _sync_from_settings(self) -> None:
         """Pull current values back into every control (used by 恢复默认)."""
@@ -538,23 +420,10 @@ class SettingsDialog(QDialog):
         self.label_btn.set_color(s.get("appearance", "label_color", default=theme.DEFAULT_LABEL))
         self.bg_opacity.set_value(int(s.get("appearance", "bg_opacity", default=82)))
         self.win_opacity.set_value(int(s.get("appearance", "window_opacity", default=100)))
-        self.font_size.set_value(int(s.get("appearance", "font_size", default=12)))
-        self.radius.set_value(int(s.get("appearance", "corner_radius", default=14)))
-        self.layout_combo.setCurrentIndex(max(0, self.layout_combo.findData(
-            s.get("appearance", "layout", default="stack"))))
+        h = self._layout_mode_h(s)
+        self.radio_h.setChecked(h)
+        self.radio_v.setChecked(not h)
         self.bars_cb.setChecked(bool(s.get("appearance", "show_bars", default=True)))
-
-        self.interval.setValue(int(s.get("sampling", "interval_ms", default=500)))
-        self.gpu_index.setValue(int(s.get("sampling", "gpu_index", default=0) or 0))
-        self.unit_combo.setCurrentIndex(max(0, self.unit_combo.findData(
-            s.get("sampling", "temp_unit", default="C"))))
-        self.fps_combo.setCurrentIndex(max(0, self.fps_combo.findData(
-            s.get("sampling", "fps_source", default="auto"))))
-        for edit, path in ((self.pm_edit, s.get("sampling", "presentmon_path", default="")),
-                           (self.file_edit, s.get("sampling", "fps_file", default=""))):
-            edit.blockSignals(True)
-            edit.setText(path or "")
-            edit.blockSignals(False)
 
         self.lock_cb.setChecked(bool(s.get("window", "locked", default=False)))
         self.click_cb.setChecked(bool(s.get("window", "click_through", default=False)))

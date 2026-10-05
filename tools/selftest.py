@@ -18,7 +18,7 @@ if CFG.exists():
     CFG.unlink()
 os.environ["PERF_OVERLAY_CONFIG"] = str(CFG)
 
-from PySide6.QtCore import QPoint, Qt  # noqa: E402
+from PySide6.QtCore import QPoint, QSize, Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
@@ -84,29 +84,25 @@ def main() -> int:
           after.width() <= before.width() + 2,
           f"{before.width()} -> {after.width()}")
 
-    # ---- 4. bottom-edge drag resizes height
-    before = ov.geometry()
-    p = QPoint(before.width() / 2, before.height() - 3)
-    QTest.mousePress(ov, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, p)
-    QTest.mouseMove(ov, p + QPoint(0, 45), delay=5)
-    QTest.mouseRelease(ov, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, p + QPoint(0, 45))
-    app.processEvents()
-    after = ov.geometry()
-    check("bottom-edge drag resizes height", after.height() == before.height() + 45,
-          f"{before.height()} -> {after.height()}")
+    # ---- 4/5/6. edge drags no longer resize: the window always snaps back
+    # to its canonical size (layout mode x metric count)
+    for name, delta in (("bottom-edge", QPoint(0, 45)),
+                        ("corner", QPoint(-30, -20))):
+        before = ov.geometry()
+        if name == "bottom-edge":
+            p = QPoint(before.width() / 2, before.height() - 3)
+        else:
+            p = QPoint(before.width() - 3, before.height() - 3)
+        QTest.mousePress(ov, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, p)
+        QTest.mouseMove(ov, p + delta, delay=5)
+        QTest.mouseRelease(ov, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, p + delta)
+        app.processEvents()
+        after = ov.geometry()
+        check(f"{name} drag snaps back to canonical size",
+              after.size() == before.size()
+              and before.size() == ov._canonical_size(),
+              f"{before.width()}x{before.height()} -> {after.width()}x{after.height()}")
 
-    # ---- 5. corner drag resizes both
-    before = ov.geometry()
-    p = QPoint(before.width() - 3, before.height() - 3)
-    QTest.mousePress(ov, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, p)
-    QTest.mouseMove(ov, p + QPoint(-30, -20), delay=5)
-    QTest.mouseRelease(ov, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, p + QPoint(-30, -20))
-    app.processEvents()
-    after = ov.geometry()
-    check("corner drag resizes both", after.width() == before.width() - 30 and after.height() == before.height() - 20,
-          f"{before.width()}x{before.height()} -> {after.width()}x{after.height()}")
-
-    # ---- 6. resize clamps at minimum size
     before = ov.geometry()
     p = QPoint(before.width() - 3, before.height() / 2)
     QTest.mousePress(ov, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, p)
@@ -114,8 +110,9 @@ def main() -> int:
     QTest.mouseRelease(ov, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, p + QPoint(-5000, 0))
     app.processEvents()
     after = ov.geometry()
-    check("resize clamps to MIN_WIDTH", after.width() == OverlayWidget.MIN_WIDTH,
-          f"width={after.width()}")
+    check("far drag snaps back to canonical size",
+          after.size() == ov._canonical_size(),
+          f"size={after.width()}x{after.height()}")
 
     # ---- 7. locked position ignores drag
     ov.setGeometry(300, 300, 268, 382)
@@ -152,31 +149,31 @@ def main() -> int:
     check("rows inside panel", inside, f"rects_ok={inside}")
     check("rows do not overlap", not overlap)
 
-    # ---- 9b. portrait stacks top-to-bottom; landscape flows left-to-right
+    # ---- 9b. list mode stacks top-to-bottom; strip mode flows left-to-right
     tops = sorted(r["rect"].top() for r in ov._rows)
-    xs = sorted(r["rect"].left() for r in ov._rows)
-    check("portrait flow is vertical", len(set(tops)) > 1 and tops != sorted(xs),
+    check("list mode is vertical flow", len(set(tops)) > 1,
           f"tops={tops[:3]}...")
+    check("list mode canonical size",
+          ov.size() == ov._canonical_size() == QSize(231, 332),
+          f"size={ov.width()}x{ov.height()}")
 
-    ov.setGeometry(200, 200, 760, 120)  # wide strip
+    settings.set("appearance", "layout", "h")
     app.processEvents()
     landscape = [r["rect"] for r in ov._rows]
-    check("landscape flag set", bool(ov._landscape), f"w=760 h=120")
+    check("strip mode canonical size",
+          ov.size() == QSize(945, 96) and bool(ov._landscape),
+          f"size={ov.width()}x{ov.height()}")
     same_band = len({r.top() for r in landscape}) == 1
     increasing_x = all(landscape[i].left() < landscape[i + 1].left() for i in range(len(landscape) - 1))
-    check("landscape flow is horizontal", same_band and increasing_x,
+    check("strip flow is horizontal", same_band and increasing_x,
           f"bands={len({r.top() for r in landscape})} xs={[r.left() for r in landscape[:4]]}")
-    narrow = all(r.width() < 118 for r in landscape)
-    check("landscape cells are compact", narrow, f"w0={landscape[0].width() if landscape else 0}")
 
-    ov.setGeometry(200, 200, 268, 382)  # back to portrait for later checks
+    settings.set("appearance", "layout", "v")
     app.processEvents()
 
-    # ---- 10. portrait width hugs the content (unit sits right after value)
+    # ---- 10. list mode keeps its fixed 231px width
     app.processEvents()
-    check("portrait width hugs content",
-          ov.width() <= ov._natural_stack_width() + 2,
-          f"w={ov.width()} natural={ov._natural_stack_width()}")
+    check("list width fixed at 231", ov.width() == 231, f"w={ov.width()}")
 
     # ---- 11. value formatting
     check("format percent", format_value(METRIC_SPECS[2], 42.0) == ("42", "%"),
@@ -290,21 +287,21 @@ def main() -> int:
     app.processEvents()
     check("click-through disables", not bool(ov.windowFlags() & Qt.WindowType.WindowTransparentForInput))
 
-    # ---- 17. geometry persisted on release
+    # ---- 17. geometry persisted on release (size snaps to canonical)
     settings.set("window", "locked", False)
     ov.setGeometry(111, 122, 300, 400)
     app.processEvents()
     ov._persist_geometry()
-    check("geometry persisted", settings.get("window", "x") == 111
-          and settings.get("window", "height") == 400)
+    check("geometry persisted",
+          settings.get("window", "x") == 111
+          and settings.get("window", "height") == ov._canonical_size().height())
 
     ov.close()
 
     # ---- 18. settings dialog builds and "恢复默认" re-syncs the widgets
     settings.set("appearance", "bg_color", "#334455")
-    settings.set("appearance", "font_size", 18)
     settings.set("metrics", "fps", False)
-    settings.set("sampling", "interval_ms", 1200)
+    settings.set("appearance", "layout", "h")
     app.processEvents()
     dlg = SettingsDialog(settings, None)
     dlg.show()
@@ -312,24 +309,24 @@ def main() -> int:
     check("settings dialog builds", dlg is not None and dlg.isVisible())
     check("dialog reflects changed settings",
           dlg.bg_btn._color.name().lower() == "#334455"
-          and dlg.font_size.slider.value() == 18
           and not dlg.metric_checks["fps"].isChecked()
-          and dlg.interval.value() == 1200)
+          and dlg.radio_h.isChecked()
+          and not dlg.radio_v.isChecked())
 
     dlg._reset()
     app.processEvents()
     ok = (dlg.bg_btn._color.name().lower() == "#12141c"
-          and dlg.font_size.slider.value() == 12
           and dlg.metric_checks["fps"].isChecked()
-          and dlg.interval.value() == 500
-          and dlg.layout_combo.currentData() == "stack"
+          and dlg.radio_v.isChecked()
+          and not dlg.radio_h.isChecked()
           and dlg.bg_opacity.slider.value() == 82
           and dlg.win_opacity.slider.value() == 100
           and dlg.click_cb.isChecked() is False
           and dlg.lock_cb.isChecked() is False)
     check("恢复默认 re-syncs every widget", ok,
-          f"bg={dlg.bg_btn._color.name()} font={dlg.font_size.slider.value()} "
-          f"fps={dlg.metric_checks['fps'].isChecked()} interval={dlg.interval.value()}")
+          f"bg={dlg.bg_btn._color.name()} "
+          f"fps={dlg.metric_checks['fps'].isChecked()} "
+          f"layout_h={dlg.radio_h.isChecked()}")
 
     # ---- 19. cancelling a dialog reverts live edits
     dlg.close()

@@ -67,8 +67,7 @@ DEFAULTS: Dict[str, Any] = {
         "bg_opacity": 82,        # 0-100, alpha of the panel background
         "window_opacity": 100,   # 0-100, whole-window opacity
         "corner_radius": 14,
-        "layout": "stack",       # stack | inline
-        "show_header": True,
+        "layout": "v",           # h = 横排显示 | v = 纵排显示
         "show_bars": True,
         "font_size": 12,
     },
