@@ -21,6 +21,26 @@ from .ui.overlay import OverlayWidget
 from .ui.settings import SettingsDialog
 from .ui import theme
 
+# ------------------------------------------------------------------ DPI
+# The HUD's pixel sizes (945x96 strip / 231x332 list / 48px gauge) are
+# physical pixels.  Neutralise Windows display scaling so one logical
+# pixel is one physical pixel; must run before the QApplication exists.
+if sys.platform == "win32":
+    try:
+        import winreg
+        _dpi = winreg.QueryValueEx(
+            winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                           r"Control Panel\Desktop\WindowMetrics"),
+            "AppliedDPI")[0]
+    except Exception:
+        _dpi = 96
+    try:
+        _dpi = int(_dpi)
+    except (TypeError, ValueError):
+        _dpi = 96
+    if _dpi and _dpi > 96:
+        os.environ["QT_SCALE_FACTOR"] = f"{96.0 / _dpi:.6f}"
+
 
 # ------------------------------------------------------------------ icon
 def make_icon(accent: str = theme.DEFAULT_ACCENT, size: int = 64) -> QIcon:
