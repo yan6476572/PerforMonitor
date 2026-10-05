@@ -913,9 +913,9 @@ class OverlayWidget(QWidget):
 
         font_size = int(s.get("appearance", "font_size", default=12))
         cell_h = rect.height()
-        # landscape cells: label clearly larger than the value, so the eye
-        # reads the metric name first; both auto-shrink if width is tight
-        val_pt = int(max(8, min(font_size - 1, round(cell_h * 0.30))))
+        # landscape cells: label slightly larger than the value; value and
+        # unit share one size. Both auto-shrink if width is tight.
+        val_pt = int(max(8, min(font_size + 2, round(cell_h * 0.30))))
         lab_pt = int(max(8, min(font_size + 3, round(cell_h * 0.30))))
         base_label = theme.ui_font(lab_pt)
         base_value = theme.ui_font(val_pt, theme.QFont.Weight.DemiBold)
@@ -988,8 +988,9 @@ class OverlayWidget(QWidget):
 
         font_size = int(s.get("appearance", "font_size", default=12))
         base_label = theme.ui_font(max(8, font_size - 2))
-        base_value = theme.ui_font(max(9, font_size + 1), theme.QFont.Weight.DemiBold)
-        base_unit = theme.ui_font(max(8, font_size - 2))
+        val_pt = max(9, font_size + 2)
+        base_value = theme.ui_font(val_pt, theme.QFont.Weight.DemiBold)
+        base_unit = theme.ui_font(val_pt)   # unit matches the value size
 
         bar_h = 4.0
         text_h = rect.height() - (7 + bar_h) if self._draw_bars else rect.height()

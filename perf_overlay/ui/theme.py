@@ -201,18 +201,18 @@ QDialog#SettingsDialog {
     border: 1px solid rgba(255,255,255,0.09);
     border-radius: 16px;
 }
-QLabel#DialogTitle { color: #EAF0FA; font-size: 15px; font-weight: 600; }
-QLabel#DialogSubtitle { color: #6B7387; font-size: 10px; letter-spacing: 1px; }
+QLabel#DialogTitle { color: #EAF0FA; font-size: 22px; font-weight: 600; }
+QLabel#DialogSubtitle { color: #6B7387; font-size: 15px; letter-spacing: 1px; }
 QLabel#SectionTitle {
-    color: #7FA6FF; font-size: 10px; font-weight: 700; letter-spacing: 1.4px;
+    color: #7FA6FF; font-size: 15px; font-weight: 700; letter-spacing: 1.4px;
     padding-top: 10px;
 }
-QLabel#FieldLabel { color: #A7B0C3; font-size: 11.5px; background: transparent; }
-QLabel#ValueLabel { color: #EAF0FA; font-size: 11.5px; font-weight: 600; background: transparent; }
-QLabel#Hint { color: #5D6577; font-size: 10px; background: transparent; }
+QLabel#FieldLabel { color: #A7B0C3; font-size: 17px; background: transparent; }
+QLabel#ValueLabel { color: #EAF0FA; font-size: 17px; font-weight: 600; background: transparent; }
+QLabel#Hint { color: #5D6577; font-size: 15px; background: transparent; }
 
 QCheckBox {
-    color: #C7CEDC; font-size: 11.5px; spacing: 8px; background: transparent;
+    color: #C7CEDC; font-size: 17px; spacing: 8px; background: transparent;
 }
 QCheckBox::indicator { width: 16px; height: 16px; border-radius: 5px; }
 QCheckBox::indicator:unchecked {
@@ -239,7 +239,7 @@ QSlider::handle:horizontal:hover { background: #FFFFFF; border-color: %(accentLi
 
 QComboBox {
     background-color: #21252F; color: #D5DBE7; border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 7px; padding: 5px 26px 5px 10px; font-size: 11.5px; min-width: 96px;
+    border-radius: 7px; padding: 5px 26px 5px 10px; font-size: 17px; min-width: 96px;
 }
 QComboBox:hover { border-color: rgba(255,255,255,0.22); }
 QComboBox::drop-down { border: none; width: 22px; }
@@ -254,7 +254,7 @@ QComboBox QAbstractItemView {
 QSpinBox, QLineEdit {
     background-color: #21252F; color: #D5DBE7;
     border: 1px solid rgba(255,255,255,0.10); border-radius: 7px;
-    padding: 5px 9px; font-size: 11.5px; selection-background-color: %(accent)s;
+    padding: 5px 9px; font-size: 17px; selection-background-color: %(accent)s;
 }
 QSpinBox:focus, QLineEdit:focus { border-color: %(accent)s; }
 QSpinBox::up-button, QSpinBox::down-button { width: 0; border: none; }
@@ -267,20 +267,20 @@ QPushButton#ColorSwatch:hover { border-color: rgba(255,255,255,0.38); }
 
 QPushButton#Ghost {
     background: transparent; color: #8A93A8; border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 9px; padding: 8px 18px; font-size: 11.5px;
+    border-radius: 9px; padding: 8px 18px; font-size: 17px;
 }
 QPushButton#Ghost:hover { color: #D5DBE7; border-color: rgba(255,255,255,0.26); }
 
 QPushButton#Primary {
     background-color: %(accent)s; color: #0B0D13; border: none;
-    border-radius: 9px; padding: 8px 22px; font-size: 11.5px; font-weight: 700;
+    border-radius: 9px; padding: 8px 22px; font-size: 17px; font-weight: 700;
 }
 QPushButton#Primary:hover { background-color: %(accentLight)s; }
 QPushButton#Primary:pressed { background-color: %(accentDark)s; }
 
 QPushButton#Flat {
     background: transparent; color: #A7B0C3; border: none;
-    border-radius: 8px; padding: 7px 14px; font-size: 11.5px;
+    border-radius: 8px; padding: 7px 14px; font-size: 17px;
 }
 QPushButton#Flat:hover { background-color: rgba(255,255,255,0.07); color: #EAF0FA; }
 
