@@ -228,7 +228,7 @@ pyinstaller PerfOverlay.spec
 见「配置」一节；找不到时用 `--config` 显式指定。
 
 **Q：CPU 占用高吗？**
-不高。传感器轮询在独立线程，默认 500 ms 一次，单次耗时通常 < 5 ms。
+不高。传感器轮询在独立线程，固定 1 秒一次，单次耗时通常 < 5 ms。
 
 **Q：杀毒软件报毒？**
 PyInstaller 单文件 exe 的常见误报。可用 `build_exe.bat` 在本机自行打包，或把文件加入白名单。

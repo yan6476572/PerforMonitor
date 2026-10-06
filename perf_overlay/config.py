@@ -73,7 +73,7 @@ DEFAULTS: Dict[str, Any] = {
     },
     "metrics": {k: True for k in ALL_METRIC_KEYS},
     "sampling": {
-        "interval_ms": 500,
+        "interval_ms": 1000,
         "temp_unit": "C",        # C | F
         "gpu_index": 0,
         "fps_source": "auto",    # auto | presentmon | file | off
@@ -149,6 +149,10 @@ class Settings:
                 raw = json.load(fh)
         except (OSError, ValueError):
             raw = {}
+        # the refresh-interval option was removed from the UI; the sampling
+        # cadence is a fixed 1s now, so an old saved value must not win
+        if isinstance(raw, dict):
+            raw.get("sampling", {}).pop("interval_ms", None)
         settings = cls(raw)
         settings._path = path
         return settings

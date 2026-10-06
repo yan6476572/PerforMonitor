@@ -39,7 +39,7 @@ class PollWorker(QThread):
             mode=str(s.get("sampling", "fps_source", default="auto")),
             file_path=str(s.get("sampling", "fps_file", default="") or ""),
             presentmon_path=str(s.get("sampling", "presentmon_path", default="") or ""),
-            update_interval=max(0.2, int(s.get("sampling", "interval_ms", default=500)) / 1000.0),
+            update_interval=max(0.2, int(s.get("sampling", "interval_ms", default=1000)) / 1000.0),
         )
         self._providers.append(self._fps)
         for p in self._providers:
@@ -58,7 +58,7 @@ class PollWorker(QThread):
                 mode=str(s.get("sampling", "fps_source", default="auto")),
                 file_path=str(s.get("sampling", "fps_file", default="") or ""),
                 presentmon_path=str(s.get("sampling", "presentmon_path", default="") or ""),
-                interval=max(0.2, int(s.get("sampling", "interval_ms", default=500)) / 1000.0),
+                interval=max(0.2, int(s.get("sampling", "interval_ms", default=1000)) / 1000.0),
             )
         except Exception:
             pass
@@ -89,7 +89,7 @@ class PollWorker(QThread):
                     continue
             self.snapshot.emit(snap)
 
-            interval = max(0.1, int(self.settings.get("sampling", "interval_ms", default=500)) / 1000.0)
+            interval = max(0.1, int(self.settings.get("sampling", "interval_ms", default=1000)) / 1000.0)
             elapsed = time.monotonic() - started
             self.msleep(int(max(20, (interval - elapsed) * 1000)))
         for p in self._providers:
