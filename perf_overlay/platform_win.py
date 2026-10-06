@@ -238,6 +238,31 @@ if IS_WINDOWS:  # pragma: no cover - exercised on the target machine
         def _on_timer(self) -> None:
             self.poke()
 
+    # -- single instance ----------------------------------------------
+    _MUTEX_HANDLE = None
+
+    def acquire_single_instance(name: str) -> bool:
+        """True when this is the only instance; False if one already runs.
+
+        Uses a session-local named mutex, so the elevated and any
+        non-elevated copy in the same logon session share the check.
+        """
+        global _MUTEX_HANDLE
+        SYNCHRONIZE = 0x00100000
+        if kernel32.OpenMutexW(SYNCHRONIZE, False, name):
+            return False
+        _MUTEX_HANDLE = kernel32.CreateMutexW(None, False, name)
+        return True
+
+    def activate_existing_window(title: str) -> bool:
+        """Best effort: surface an already running window by its title."""
+        hwnd = user32.FindWindowW(None, title)
+        if not hwnd:
+            return False
+        user32.ShowWindow(hwnd, 9)  # SW_RESTORE: also un-minimizes / unhides
+        user32.SetForegroundWindow(hwnd)
+        return True
+
 else:  # pragma: no cover - trivial stubs
     def apply_overlay_styles(widget) -> None:
         return
@@ -256,6 +281,12 @@ else:  # pragma: no cover - trivial stubs
 
     def keep_above_fullscreen(widget) -> None:
         return
+
+    def acquire_single_instance(name: str) -> bool:
+        return True
+
+    def activate_existing_window(title: str) -> bool:
+        return False
 
     class TopmostGuard:
         def __init__(self, widget) -> None:

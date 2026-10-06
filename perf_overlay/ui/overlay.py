@@ -12,7 +12,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QApplication, QMenu, QWidget
 
-from .. import platform_win
+from .. import __app_name__, platform_win
 from ..config import Settings
 from ..metrics import GROUP_COLORS, METRIC_BY_KEY, METRIC_SPECS, Metrics, MetricSpec
 from . import theme
@@ -58,6 +58,7 @@ class OverlayWidget(QWidget):
             | Qt.WindowType.Tool
             | Qt.WindowType.WindowDoesNotAcceptFocus
         )
+        self.setWindowTitle(__app_name__)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)

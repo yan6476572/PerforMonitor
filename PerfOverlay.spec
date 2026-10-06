@@ -41,6 +41,11 @@ _pm = Path(SPECPATH) / "bin" / "PresentMon64.exe"
 if _pm.exists():
     _lhm_datas.append((str(_pm), "bin"))
 
+# the neon-chip tray icon (loaded from _MEIPASS at runtime)
+_ai = Path(SPECPATH) / "app_icon.ico"
+if _ai.exists():
+    _lhm_datas.append((str(_ai), "."))
+
 a = Analysis(
     ['main.py'],
     pathex=[],
@@ -89,6 +94,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(Path(SPECPATH) / 'PixPin_2026-09-28_22-22-58.ico'),
+    icon=str(Path(SPECPATH) / 'app_icon.ico'),
     uac_admin=True,  # requireAdministrator: LHM needs MSR access for CPU temp/power
 )

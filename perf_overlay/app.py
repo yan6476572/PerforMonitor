@@ -43,6 +43,21 @@ if sys.platform == "win32":
 
 
 # ------------------------------------------------------------------ icon
+def _app_icon() -> QIcon:
+    """The shipped neon-chip icon; falls back to the drawn tile."""
+    candidates = []
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            candidates.append(Path(meipass) / "app_icon.ico")
+        candidates.append(Path(sys.executable).resolve().parent / "app_icon.ico")
+    candidates.append(Path(__file__).resolve().parent.parent / "app_icon.ico")
+    for p in candidates:
+        if p.exists():
+            return QIcon(str(p))
+    return make_icon()
+
+
 def make_icon(accent: str = theme.DEFAULT_ACCENT, size: int = 64) -> QIcon:
     """A small self-drawn app icon: rounded tile with a live-looking pulse."""
     pm = QPixmap(size, size)
@@ -182,15 +197,14 @@ class PerfOverlayApp:
     def _on_settings_changed(self, _s: Settings) -> None:
         self.sensors.reconfigure()
         if self.tray is not None:
-            self.tray.setIcon(make_icon(self.settings.get("appearance", "accent_color",
-                                                          default=theme.DEFAULT_ACCENT)))
+            self.tray.setIcon(_app_icon())
 
     # -- tray ---------------------------------------------------------
     def _build_tray(self) -> None:
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return
+        self.tray = QSystemTrayIcon(_app_icon())
         accent = self.settings.get("appearance", "accent_color", default=theme.DEFAULT_ACCENT)
-        self.tray = QSystemTrayIcon(make_icon(accent))
         self.tray.setToolTip(f"{__app_name__} {__version__}")
         menu = QMenu()
         menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
@@ -483,6 +497,13 @@ def run(argv: Optional[list[str]] = None) -> int:
 
     if args.probe_sensors:
         return _probe_sensors(args.probe_sensors)
+
+    # single instance: surface the running copy instead of starting twice
+    if not args.reset and not args.screenshot:
+        if not platform_win.acquire_single_instance(
+                "Local\\PerformanceMonitor.SingleInstance"):
+            platform_win.activate_existing_window(__app_name__)
+            return 0
 
     # CPU temp / power need an elevated process for the LHM driver.
     # Relaunch ourselves with UAC before any window appears (unless opted out
