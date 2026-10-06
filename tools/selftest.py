@@ -258,16 +258,14 @@ def main() -> int:
     settings.set("appearance", "bg_color", "#203040")
     settings.set("appearance", "bg_opacity", 57)
     settings.set("appearance", "corner_radius", 9)
-    settings.set("sampling", "gpu_index", 2)
+    settings.set("sampling", "interval_ms", 750)
     settings.set("window", "x", 424)
     path = settings.save()
     reloaded = Settings.load()
     ok = (reloaded.get("appearance", "bg_color") == "#203040"
           and reloaded.get("appearance", "bg_opacity") == 57
           and reloaded.get("appearance", "corner_radius") == 9
-          and reloaded.get("sampling", "gpu_index") == 2
-          # interval_ms is a fixed 1s now: saved values are dropped on load
-          and reloaded.get("sampling", "interval_ms") == 1000
+          and reloaded.get("sampling", "interval_ms") == 750
           and reloaded.get("window", "x") == 424)
     check("settings persist & reload", ok, str(path))
 

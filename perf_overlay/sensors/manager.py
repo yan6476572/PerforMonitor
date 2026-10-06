@@ -26,6 +26,7 @@ class PollWorker(QThread):
         self.settings = settings
         self._running = True
         self._providers: List[Provider] = []
+        self._system: Optional[SystemProvider] = None
         self._fps: Optional[FpsProvider] = None
         self._last_emit = 0.0
 
@@ -33,7 +34,8 @@ class PollWorker(QThread):
     def build_providers(self) -> None:
         s = self.settings
         self._providers = []
-        self._providers.append(SystemProvider())
+        self._system = SystemProvider()
+        self._providers.append(self._system)
         self._providers.append(NvidiaProvider(index=int(s.get("sampling", "gpu_index", default=0) or 0)))
         self._fps = FpsProvider(
             mode=str(s.get("sampling", "fps_source", default="auto")),
@@ -76,22 +78,40 @@ class PollWorker(QThread):
         self.wait(3000)
 
     # -- main loop ----------------------------------------------------
+    #: net speed refreshes on its own fixed 2 Hz cadence, everything else
+    #: follows the user-configurable sampling interval
+    NET_INTERVAL = 0.5
+
     def run(self) -> None:  # noqa: D102
         self.build_providers()
         self.status.emit("ready")
+        last_sensor = 0.0
+        last_net = 0.0
+        sensor_snap = Metrics()
         while self._running:
-            started = time.monotonic()
-            snap = Metrics()
-            for p in self._providers:
-                try:
-                    p.poll(snap)
-                except Exception:
-                    continue
-            self.snapshot.emit(snap)
+            now = time.monotonic()
+            sensor_interval = max(0.1, int(self.settings.get(
+                "sampling", "interval_ms", default=1000)) / 1000.0)
+            if now - last_sensor >= sensor_interval:
+                sensor_snap = Metrics()
+                for p in self._providers:
+                    try:
+                        p.poll(sensor_snap)
+                    except Exception:
+                        continue
+                last_sensor = now
+            if now - last_net >= self.NET_INTERVAL:
+                if self._system is not None:
+                    try:
+                        self._system.poll_net(sensor_snap)
+                    except Exception:
+                        pass
+                last_net = now
+            self.snapshot.emit(sensor_snap)
 
-            interval = max(0.1, int(self.settings.get("sampling", "interval_ms", default=1000)) / 1000.0)
-            elapsed = time.monotonic() - started
-            self.msleep(int(max(20, (interval - elapsed) * 1000)))
+            next_event = min(last_sensor + sensor_interval,
+                             last_net + self.NET_INTERVAL)
+            self.msleep(int(max(20, (next_event - time.monotonic()) * 1000)))
         for p in self._providers:
             try:
                 p.stop()

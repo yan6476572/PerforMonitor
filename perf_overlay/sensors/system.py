@@ -345,6 +345,14 @@ class SystemProvider(Provider):
         if down >= 0:
             out.set("net_down", down, self.name)
 
+    def poll_net(self, out: Metrics) -> None:
+        """Net throughput only, on its own fixed 2 Hz cadence.
+
+        Kept separate from ``poll`` so the 500 ms counter diffs are not
+        disturbed by the (usually slower) sensor sampling interval.
+        """
+        self._net_speed(out)
+
     # -- poll ---------------------------------------------------------
     def poll(self, out: Metrics) -> None:
         if psutil is not None:
@@ -356,7 +364,6 @@ class SystemProvider(Provider):
                 out.set("mem_usage", psutil.virtual_memory().percent, self.name)
             except Exception:
                 pass
-        self._net_speed(out)
 
         lhm = None
         if self._lhm_native is not None and self._lhm_native.available:

@@ -115,12 +115,13 @@ def main() -> int:
     check("format None -> --", format_speed(None) == "--")
     check("format negative clamps to 0.0K/s", format_speed(-5) == "0.0K/s")
 
-    # ---- real sensor provider fills net fields -----------------------
+    # ---- real sensor provider fills net fields (net rides its own 2 Hz path)
     from perf_overlay.sensors.system import SystemProvider
     prov = SystemProvider()
     snap = Metrics()
-    prov.poll(snap)
-    prov.poll(snap)
+    for _ in range(2):
+        prov.poll(snap)
+        prov.poll_net(snap)
     prov.stop()
     check("provider reports net_up", snap.net_up is not None)
     check("provider reports net_down", snap.net_down is not None)

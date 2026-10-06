@@ -10,7 +10,7 @@ from PySide6.QtGui import QColor, QFont, QMouseEvent, QPainter, QPen, QPolygon
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QColorDialog, QComboBox, QDialog,
     QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QRadioButton,
-    QScrollArea, QSizePolicy, QSlider, QVBoxLayout, QWidget,
+    QScrollArea, QSizePolicy, QSlider, QSpinBox, QVBoxLayout, QWidget,
 )
 
 from ..config import Settings
@@ -197,6 +197,7 @@ class SettingsDialog(QDialog):
         self._path_edits = []
         self._build_metrics_section()
         self._build_appearance_section()
+        self._build_sampling_section()
         self._build_window_section()
         self.body_lay.addStretch(1)
 
@@ -335,6 +336,29 @@ class SettingsDialog(QDialog):
 
     def _on_layout_mode(self) -> None:
         self.settings.set("appearance", "layout", "h" if self.radio_h.isChecked() else "v")
+
+    def _build_sampling_section(self) -> None:
+        v = self._section("采样")
+        s = self.settings
+
+        row = QHBoxLayout()
+        row.setSpacing(12)
+        row.addWidget(self._field("刷新间隔"))
+        self.interval = QSpinBox()
+        self.interval.setRange(100, 5000)
+        self.interval.setSingleStep(100)
+        self.interval.setSuffix(" ms")
+        self.interval.setValue(int(s.get("sampling", "interval_ms", default=1000)))
+        self.interval.valueChanged.connect(lambda val: s.set("sampling", "interval_ms", int(val)))
+        row.addWidget(self.interval)
+        row.addStretch(1)
+        v.addLayout(row)
+
+        hint = QLabel("其他传感器按此间隔刷新（100–5000 ms，默认 1 秒）；"
+                      "网速固定 500 ms 刷新，不受此值影响。")
+        hint.setObjectName("Hint")
+        hint.setWordWrap(True)
+        v.addWidget(hint)
 
     def _build_window_section(self) -> None:
         v = self._section("窗口行为")
