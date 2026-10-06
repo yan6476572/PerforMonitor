@@ -129,6 +129,9 @@ class SettingsDialog(QDialog):
         self._saved = False
         self._dragging = False
         self._drag_offset = None
+        # explicit title: untitled Qt windows fall back to the app display
+        # name and would collide with the HUD in FindWindow-by-title lookups
+        self.setWindowTitle("设置")
 
         self.setObjectName("SettingsDialog")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog

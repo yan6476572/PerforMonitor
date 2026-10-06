@@ -39,6 +39,9 @@ class NetSpeedCard(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        # a distinct title so the app-display-name fallback can't make this
+        # hidden window collide with the HUD in FindWindow-by-title lookups
+        self.setWindowTitle("_PerfOverlayNetCard")
         self._up: Optional[float] = None
         self._down: Optional[float] = None
         self._font = theme.ui_font(10, theme.QFont.Weight.DemiBold)
